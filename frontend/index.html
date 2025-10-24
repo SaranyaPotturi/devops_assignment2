@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TicketHub - Book Your Events</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-in',
+                        'slide-up': 'slideUp 0.5s ease-out',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(20px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen">
+    <!-- Header -->
+    <header class="bg-black/30 backdrop-blur-lg border-b border-white/10 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"></path>
+                        </svg>
+                    </div>
+                    <h1 class="text-2xl font-bold text-white">TicketHub</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="hidden md:flex items-center space-x-2 text-sm text-gray-300">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                        <span>Hyderabad</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Search Bar -->
+        <div class="mb-8">
+            <div class="relative max-w-2xl mx-auto">
+                <svg class="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="Search for movies, events, concerts..."
+                    class="w-full pl-12 pr-4 py-4 bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+            </div>
+        </div>
+
+        <!-- Categories -->
+        <div id="categories" class="mb-8 flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+            <!-- Categories will be loaded here -->
+        </div>
+
+        <!-- Events Grid -->
+        <div id="eventsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Events will be loaded here -->
+        </div>
+
+        <!-- Loading Spinner -->
+        <div id="loading" class="hidden text-center py-12">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+            <p class="text-gray-400 mt-4">Loading events...</p>
+        </div>
+    </main>
+
+    <!-- Booking Modal -->
+    <div id="bookingModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 overflow-y-auto">
+        <div class="min-h-screen px-4 py-8 flex items-center justify-center">
+            <div class="bg-gradient-to-br from-slate-900 to-purple-900 rounded-2xl max-w-4xl w-full border border-white/10 shadow-2xl animate-slide-up">
+                <!-- Modal content will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000/api';
+
+        // State
+        let allEvents = [];
+        let selectedCategory = 'all';
+        let selectedEvent = null;
+        let selectedVenue = null;
+        let selectedTime = null;
+        let selectedSeats = 1;
+
+        // Categories
+        const categories = [
+            { id: 'all', name: 'All', icon: '⭐' },
+            { id: 'movies', name: 'Movies', icon: '🎬' },
+            { id: 'concerts', name: 'Concerts', icon: '🎵' },
+            { id: 'events', name: 'Events', icon: '🎮' },
+            { id: 'sports', name: 'Sports', icon: '🏆' }
+        ];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCategories();
+            loadEvents();
+            setupSearchListener();
+        });
+
+        // Load categories
+        function loadCategories() {
+            const categoriesContainer = document.getElementById('categories');
+            categoriesContainer.innerHTML = categories.map(cat => `
+                <button
+                    onclick="filterByCategory('${cat.id}')"
+                    class="category-btn flex items-center space-x-2 px-6 py-3 rounded-xl font-medium transition-all whitespace-nowrap ${
+                        selectedCategory === cat.id
+                            ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/50'
+                            : 'bg-white/10 backdrop-blur-lg text-gray-300 hover:bg-white/20'
+                    }"
+                    data-category="${cat.id}"
+                >
+                    <span class="text-xl">${cat.icon}</span>
+                    <span>${cat.name}</span>
+                </button>
+            `).join('');
+        }
+
+        // Load events from API
+        async function loadEvents() {
+            try {
+                document.getElementById('loading').classList.remove('hidden');
+                document.getElementById('eventsGrid').classList.add('hidden');
+
+                const response = await fetch(`${API_URL}/events`);
+                allEvents = await response.json();
+                
+                displayEvents(allEvents);
+                
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('eventsGrid').classList.remove('hidden');
+            } catch (error) {
+                console.error('Error loading events:', error);
+                document.getElementById('loading').innerHTML = '<p class="text-red-400">Failed to load events. Please try again.</p>';
+            }
+        }
+
+        // Display events
+        function displayEvents(events) {
+            const grid = document.getElementById('eventsGrid');
+            grid.innerHTML = events.map(event => `
+                <div
+                    onclick="openBookingModal(${event.id})"
+                    class="group cursor-pointer bg-white/5 backdrop-blur-lg rounded-2xl overflow-hidden border border-white/10 hover:border-purple-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20"
+                >
+                    <div class="relative h-72 overflow-hidden">
+                        <img
+                            src="${event.image}"
+                            alt="${event.title}"
+                            class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        />
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+                        <div class="absolute top-3 right-3 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-full flex items-center space-x-1">
+                            <svg class="w-4 h-4 text-yellow-400 fill-yellow-400" viewBox="0 0 20 20">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                            </svg>
+                            <span class="text-white font-semibold">${event.rating}</span>
+                        </div>
+                        <div class="absolute bottom-3 left-3 right-3">
+                            <h3 class="text-xl font-bold text-white mb-1">${event.title}</h3>
+                            <p class="text-gray-300 text-sm">${event.genre}</p>
+                        </div>
+                    </div>
+                    <div class="p-4 space-y-2">
+                        <div class="flex items-center text-sm text-gray-300">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            ${event.duration}
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-2xl font-bold text-white">₹${event.price}</span>
+                            <button class="bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 rounded-lg text-white font-medium flex items-center space-x-1 hover:shadow-lg hover:shadow-purple-500/50 transition-all">
+                                <span>Book</span>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Filter by category
+        function filterByCategory(categoryId) {
+            selectedCategory = categoryId;
+            
+            // Update button styles
+            document.querySelectorAll('.category-btn').forEach(btn => {
+                if (btn.dataset.category === categoryId) {
+                    btn.className = 'category-btn flex items-center space-x-2 px-6 py-3 rounded-xl font-medium transition-all whitespace-nowrap bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/50';
+                } else {
+                    btn.className = 'category-btn flex items-center space-x-2 px-6 py-3 rounded-xl font-medium transition-all whitespace-nowrap bg-white/10 backdrop-blur-lg text-gray-300 hover:bg-white/20';
+                }
+            });
+
+            filterEvents();
+        }
+
+        // Search functionality
+        function setupSearchListener() {
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', (e) => {
+                filterEvents();
+            });
+        }
+
+        // Filter events
+        function filterEvents() {
+            const searchQuery = document.getElementById('searchInput').value.toLowerCase();
+            
+            const filtered = allEvents.filter(event => {
+                const matchesCategory = selectedCategory === 'all' || event.category === selectedCategory;
+                const matchesSearch = event.title.toLowerCase().includes(searchQuery);
+                return matchesCategory && matchesSearch;
+            });
+
+            displayEvents(filtered);
+        }
+
+        // Open booking modal
+        function openBookingModal(eventId) {
+            selectedEvent = allEvents.find(e => e.id === eventId);
+            selectedVenue = null;
+            selectedTime = null;
+            selectedSeats = 1;
+            
+            const modal = document.getElementById('bookingModal');
+            modal.classList.remove('hidden');
+            renderBookingModal();
+        }
+
+        // Close booking modal
+        function closeBookingModal() {
+            document.getElementById('bookingModal').classList.add('hidden');
+        }
+
+        // Render booking modal
+        function renderBookingModal() {
+            const modal = document.getElementById('bookingModal').querySelector('div > div');
+            modal.innerHTML = `
+                <button onclick="closeBookingModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+
+                <!-- Event Header -->
+                <div class="relative h-80">
+                    <img src="${selectedEvent.image}" alt="${selectedEvent.title}" class="w-full h-full object-cover rounded-t-2xl" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent rounded-t-2xl"></div>
+                    <div class="absolute bottom-6 left-6 right-6">
+                        <h2 class="text-4xl font-bold text-white mb-2">${selectedEvent.title}</h2>
+                        <div class="flex items-center space-x-4 text-gray-300">
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5 text-yellow-400 fill-yellow-400 mr-1" viewBox="0 0 20 20">
+                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                </svg>
+                                ${selectedEvent.rating}
+                            </span>
+                            <span>${selectedEvent.genre}</span>
+                            <span>${selectedEvent.duration}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-8 space-y-8">
+                    <!-- Venue Selection -->
+                    <div>
+                        <h3 class="text-xl font-bold text-white mb-4">Select Venue</h3>
+                        <div class="space-y-3" id="venuesList">
+                            ${selectedEvent.venues.map(venue => `
+                                <button onclick="selectVenue(${venue.id})" class="venue-btn w-full text-left p-4 rounded-xl border transition-all ${
+                                    selectedVenue?.id === venue.id
+                                        ? 'bg-purple-500/20 border-purple-500'
+                                        : 'bg-white/5 border-white/10 hover:border-purple-500/50'
+                                }" data-venue-id="${venue.id}">
+                                    <div class="font-semibold text-white">${venue.name}</div>
+                                    <div class="text-sm text-gray-400 flex items-center mt-1">
+                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                        </svg>
+                                        ${venue.location}
+                                    </div>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Time Selection -->
+                    <div id="timeSelection" class="hidden">
+                        <h3 class="text-xl font-bold text-white mb-4">Select Time</h3>
+                        <div id="timeSlots" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+                    </div>
+
+                    <!-- Seats Selection -->
+                    <div id="seatsSelection" class="hidden">
+                        <h3 class="text-xl font-bold text-white mb-4">Number of Seats</h3>
+                        <div class="flex items-center space-x-4">
+                            <button onclick="updateSeats(-1)" class="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-lg text-white font-bold transition-colors">-</button>
+                            <div class="flex-1 text-center">
+                                <div class="text-4xl font-bold text-white" id="seatsCount">1</div>
+                                <div class="text-sm text-gray-400">Seats</div>
+                            </div>
+                            <button onclick="updateSeats(1)" class="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-lg text-white font-bold transition-colors">+</button>
+                        </div>
+                    </div>
+
+                    <!-- Booking Summary -->
+                    <div id="bookingSummary" class="hidden bg-white/5 rounded-xl p-6 space-y-4">
+                        <h3 class="text-xl font-bold text-white">Booking Summary</h3>
+                        <div class="space-y-2 text-gray-300">
+                            <div class="flex justify-between">
+                                <span>Price per ticket</span>
+                                <span class="text-white font-semibold">₹${selectedEvent.price}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Number of seats</span>
+                                <span class="text-white font-semibold" id="summarySeats">1</span>
+                            </div>
+                            <div class="border-t border-white/10 pt-2 mt-2 flex justify-between text-lg">
+                                <span class="font-semibold text-white">Total</span>
+                                <span class="font-bold text-white" id="totalPrice">₹${selectedEvent.price}</span>
+                            </div>
+                        </div>
+                        <button onclick="confirmBooking()" class="w-full bg-gradient-to-r from-purple-500 to-pink-500 py-4 rounded-xl text-white font-bold text-lg hover:shadow-lg hover:shadow-purple-500/50 transition-all">
+                            Confirm Booking
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Select venue
+        function selectVenue(venueId) {
+            selectedVenue = selectedEvent.venues.find(v => v.id === venueId);
+            selectedTime = null;
+            
+            // Update venue buttons
+            document.querySelectorAll('.venue-btn').forEach(btn => {
+                if (parseInt(btn.dataset.venueId) === venueId) {
+                    btn.className = 'venue-btn w-full text-left p-4 rounded-xl border transition-all bg-purple-500/20 border-purple-500';
+                } else {
+                    btn.className = 'venue-btn w-full text-left p-4 rounded-xl border transition-all bg-white/5 border-white/10 hover:border-purple-500/50';
+                }
+            });
+
+            // Show time slots
+            const timeSelection = document.getElementById('timeSelection');
+            timeSelection.classList.remove('hidden');
+            
+            const timeSlots = document.getElementById('timeSlots');
+            timeSlots.innerHTML = selectedVenue.times.map(time => `
+                <button onclick="selectTime('${time}')" class="time-btn p-3 rounded-xl font-medium transition-all bg-white/10 text-gray-300 hover:bg-white/20" data-time="${time}">
+                    ${time}
+                </button>
+            `).join('');
+
+            document.getElementById('seatsSelection').classList.add('hidden');
+            document.getElementById('bookingSummary').classList.add('hidden');
+        }
+
+        // Select time
+        function selectTime(time) {
+            selectedTime = time;
+            
+            // Update time buttons
+            document.querySelectorAll('.time-btn').forEach(btn => {
+                if (btn.dataset.time === time) {
+                    btn.className = 'time-btn p-3 rounded-xl font-medium transition-all bg-gradient-to-r from-purple-500 to-pink-500 text-white';
+                } else {
+                    btn.className = 'time-btn p-3 rounded-xl font-medium transition-all bg-white/10 text-gray-300 hover:bg-white/20';
+                }
+            });
+
+            document.getElementById('seatsSelection').classList.remove('hidden');
+            document.getElementById('bookingSummary').classList.remove('hidden');
+            updateSummary();
+        }
+
+        // Update seats
+        function updateSeats(change) {
+            selectedSeats = Math.max(1, Math.min(10, selectedSeats + change));
+            document.getElementById('seatsCount').textContent = selectedSeats;
+            updateSummary();
+        }
+
+        // Update summary
+        function updateSummary() {
+            document.getElementById('summarySeats').textContent = selectedSeats;
+            document.getElementById('totalPrice').textContent = `₹${selectedEvent.price * selectedSeats}`;
+        }
+
+        // Confirm booking
+        async function confirmBooking() {
+            try {
+                const bookingData = {
+                    event_id: selectedEvent.id,
+                    venue_id: selectedVenue.id,
+                    time: selectedTime,
+                    seats: selectedSeats
+                };
+
+                const response = await fetch(`${API_URL}/bookings`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(bookingData)
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showConfirmation(result);
+                } else {
+                    alert('Booking failed. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error confirming booking:', error);
+                alert('Booking failed. Please try again.');
+            }
+        }
+
+        // Show confirmation
+        function showConfirmation(booking) {
+            const modal = document.getElementById('bookingModal').querySelector('div > div');
+            modal.innerHTML = `
+                <div class="p-8 text-center">
+                    <div class="w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>
+                    <h2 class="text-3xl font-bold text-white mb-2">Booking Confirmed!</h2>
+                    <p class="text-gray-400 mb-8">Your tickets have been booked successfully</p>
+                    
+                    <div class="bg-white/5 rounded-xl p-6 space-y-4 text-left mb-8">
+                        <div class="flex justify-between items-center pb-4 border-b border-white/10">
+                            <span class="text-gray-400">Booking ID</span>
+                            <span class="text-white font-mono font-bold">${booking.booking_id}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Event</span>
+                            <span class="text-white font-semibold">${booking.event}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Venue</span>
+                            <span class="text-white">${booking.venue}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Time</span>
+                            <span class="text-white">${booking.time}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Seats</span>
+                            <span class="text-white">${booking.seats}</span>
+                        </div>
+                        <div class="flex justify-between pt-4 border-t border-white/10">
+                            <span class="text-white font-semibold">Total Paid</span>
+                            <span class="text-white font-bold text-xl">₹${booking.total}</span>
+                        </div>
+                    </div>
+
+                    <button onclick="closeBookingModal()" class="w-full bg-gradient-to-r from-purple-500 to-pink-500 py-4 rounded-xl text-white font-bold hover:shadow-lg hover:shadow-purple-500/50 transition-all">
+                        Book Another Ticket
+                    </button>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
